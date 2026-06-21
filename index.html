@@ -1,0 +1,1909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RITUAL — A Private Ledger for Daily Discipline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,500;1,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* ============ TOKENS ============ */
+  :root{
+    --black:#0a0a0b;
+    --charcoal:#141316;
+    --charcoal-2:#1c1a1e;
+    --line:rgba(201,162,75,0.16);
+    --line-strong:rgba(201,162,75,0.4);
+    --gold:#c9a24b;
+    --gold-bright:#e9d28f;
+    --gold-dim:#7c652c;
+    --cream:#f0ead9;
+    --muted:#8d8678;
+    --error:#c2685f;
+    --prio-high:#c2685f;
+    --prio-med:#c9a24b;
+    --prio-low:#6f9a7a;
+    --font-display:'Cormorant Garamond', serif;
+    --font-body:'Manrope', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+
+  *,*::before,*::after{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--black);
+    color:var(--cream);
+    font-family:var(--font-body);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2{ margin:0; font-family:var(--font-display); font-weight:600; }
+  p{ margin:0; }
+  ul{ list-style:none; margin:0; padding:0; }
+  button{ font:inherit; }
+  input,select,textarea{ font:inherit; color:inherit; }
+  a{ color:inherit; }
+
+  ::selection{ background:var(--gold-dim); color:var(--cream); }
+
+  :focus-visible{ outline:2px solid var(--gold-bright); outline-offset:3px; }
+
+  #bg-texture{
+    position:fixed; inset:0; z-index:-1;
+    background-color:var(--black);
+    background-image:
+      radial-gradient(circle at 50% 15%, rgba(201,162,75,0.10), transparent 55%),
+      repeating-linear-gradient(135deg, rgba(201,162,75,0.025) 0px, rgba(201,162,75,0.025) 1px, transparent 1px, transparent 64px);
+  }
+
+  .screen{ min-height:100vh; width:100%; }
+  [hidden]{ display:none !important; }
+
+  /* ============ KEYFRAMES ============ */
+  @keyframes fadeUp{ from{ opacity:0; transform:translateY(18px); } to{ opacity:1; transform:translateY(0); } }
+  @keyframes stampRing{ 0%{ transform:scale(0.55); opacity:0.9; } 100%{ transform:scale(2.4); opacity:0; } }
+  @keyframes punch{ 0%{ transform:scale(0.72); } 55%{ transform:scale(1.18); } 100%{ transform:scale(1); } }
+  @keyframes glowPulse{ 0%,100%{ box-shadow:0 0 0 0 rgba(201,162,75,0); } 50%{ box-shadow:0 0 50px 8px rgba(201,162,75,0.4); } }
+  @keyframes shake{ 10%,90%{ transform:translateX(-1px);} 20%,80%{ transform:translateX(2px);} 30%,50%,70%{ transform:translateX(-5px);} 40%,60%{ transform:translateX(5px);} }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  @keyframes barGrow{ from{ transform:scaleY(0); } to{ transform:scaleY(1); } }
+
+  /* ============ AUTH SCREEN ============ */
+  #auth-screen{
+    display:flex; align-items:center; justify-content:center;
+    padding:32px 20px;
+  }
+  .auth-wrap{ width:100%; max-width:420px; }
+  .brand{ text-align:center; margin-bottom:28px; }
+  .brand-mark{ width:42px; height:42px; color:var(--gold); margin-bottom:10px; }
+  .wordmark{
+    font-size:clamp(2.1rem,7vw,2.7rem);
+    font-style:italic;
+    letter-spacing:0.06em;
+    color:var(--cream);
+  }
+  .tagline{
+    margin-top:6px;
+    font-family:var(--font-mono);
+    font-size:0.72rem;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--muted);
+  }
+
+  .auth-card{
+    background:var(--charcoal);
+    border:1px solid var(--line);
+    padding:8px 28px 28px;
+    animation:fadeUp .7s ease both;
+  }
+  .tabs{ position:relative; display:flex; border-bottom:1px solid var(--line); margin-bottom:24px; }
+  .tab{
+    flex:1; background:none; border:none; padding:18px 0 14px;
+    font-family:var(--font-mono); font-size:0.74rem; letter-spacing:0.12em;
+    text-transform:uppercase; color:var(--muted); cursor:pointer;
+    transition:color .25s ease;
+  }
+  .tab.active{ color:var(--gold-bright); }
+  .tab-indicator{
+    position:absolute; bottom:-1px; left:0; width:50%; height:2px; background:var(--gold);
+    transition:transform .35s cubic-bezier(.65,0,.35,1);
+  }
+  .tab-indicator.register{ transform:translateX(100%); }
+
+  .panel{ display:none; flex-direction:column; gap:18px; }
+  .panel.active{ display:flex; }
+
+  label{ display:flex; flex-direction:column; gap:8px; font-size:0.82rem; color:var(--muted); }
+  input[type="text"],input[type="password"],input[type="date"],input[type="number"],select,textarea{
+    background:transparent; border:none; border-bottom:1px solid var(--line-strong);
+    color:var(--cream); padding:8px 2px; font-size:0.95rem; transition:border-color .25s ease;
+  }
+  input::placeholder,textarea::placeholder{ color:#5c584e; }
+  input:focus,select:focus,textarea:focus{ border-bottom-color:var(--gold-bright); }
+  select{ appearance:none; -webkit-appearance:none; cursor:pointer; }
+  select option{ background:var(--charcoal-2); color:var(--cream); }
+  input[type="date"]{ color-scheme:dark; }
+
+  .btn-gold{
+    text-transform:uppercase; letter-spacing:0.12em; font-size:0.8rem; font-weight:700;
+    font-family:var(--font-body);
+    background:linear-gradient(135deg,var(--gold),var(--gold-bright));
+    color:#1a1408; border:none; padding:15px 20px; cursor:pointer;
+    transition:transform .25s ease, box-shadow .25s ease, opacity .2s ease;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn-gold:hover{ transform:translateY(-2px); box-shadow:0 10px 30px rgba(201,162,75,0.3); }
+  .btn-gold:active{ transform:translateY(0); }
+  .btn-gold:disabled{ opacity:0.55; cursor:default; transform:none; box-shadow:none; }
+  .btn-gold-sm{
+    text-transform:uppercase; letter-spacing:0.1em; font-size:0.72rem; font-weight:700;
+    background:var(--gold); color:#1a1408; border:none; padding:10px 16px; cursor:pointer;
+    transition:transform .2s ease, box-shadow .2s ease;
+  }
+  .btn-gold-sm:hover{ transform:translateY(-1px); box-shadow:0 6px 18px rgba(201,162,75,0.3); }
+  .btn-ghost-sm{
+    text-transform:uppercase; letter-spacing:0.1em; font-size:0.72rem; font-weight:700;
+    background:none; color:var(--cream); border:1px solid var(--line-strong); padding:9px 15px; cursor:pointer;
+    transition:border-color .2s ease, color .2s ease;
+  }
+  .btn-ghost-sm:hover{ border-color:var(--gold); color:var(--gold-bright); }
+
+  .link-btn{
+    background:none; border:none; color:var(--muted); cursor:pointer;
+    font-size:0.78rem; letter-spacing:0.04em; text-align:center;
+    padding:4px; transition:color .2s ease; text-decoration:underline; text-underline-offset:3px;
+    text-decoration-color:var(--line-strong);
+  }
+  .link-btn:hover{ color:var(--gold-bright); }
+
+  .form-error{ font-size:0.78rem; color:var(--error); min-height:1px; }
+  .storage-warning{
+    font-size:0.8rem; color:var(--cream); background:rgba(194,104,95,0.12);
+    border:1px solid var(--error); padding:12px 14px; margin:14px 0; line-height:1.5;
+  }
+  .form-success{ font-size:0.78rem; color:var(--gold-bright); min-height:1px; }
+  .security-question{ font-size:0.88rem; color:var(--cream); font-style:italic; font-family:var(--font-display); font-size:1.1rem; }
+
+  .auth-card.shake{ animation:shake .4s ease; }
+
+  .spinner{
+    width:14px; height:14px; border:2px solid rgba(26,20,8,0.3); border-top-color:#1a1408;
+    border-radius:50%; animation:spin .7s linear infinite;
+  }
+
+  /* ============ DASHBOARD SCREEN ============ */
+  #dashboard-screen{ display:flex; flex-direction:column; }
+
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 32px; border-bottom:1px solid var(--line);
+  }
+  .brand-mini{ display:flex; align-items:center; gap:10px; }
+  .brand-mark-mini{ width:22px; height:22px; color:var(--gold); flex:0 0 auto; }
+  .brand-mini span{
+    font-family:var(--font-display); font-style:italic; letter-spacing:0.08em; font-size:1.25rem;
+  }
+  .topbar-date{
+    font-family:var(--font-mono); font-size:0.78rem; letter-spacing:0.06em; color:var(--muted);
+  }
+  .user-menu{ position:relative; }
+  .avatar{
+    width:38px; height:38px; border-radius:50%; border:1.5px solid var(--gold);
+    background:var(--charcoal-2); color:var(--gold-bright); font-family:var(--font-display);
+    font-size:1.1rem; cursor:pointer; transition:box-shadow .25s ease;
+  }
+  .avatar:hover{ box-shadow:0 0 0 4px rgba(201,162,75,0.15); }
+  .dropdown{
+    position:absolute; right:0; top:50px; background:var(--charcoal); border:1px solid var(--line-strong);
+    padding:16px; min-width:200px; display:flex; flex-direction:column; gap:10px; z-index:20;
+    animation:fadeUp .25s ease both;
+  }
+  .dropdown-name{ font-family:var(--font-display); font-size:1.15rem; color:var(--cream); }
+  .dropdown-since{ font-family:var(--font-mono); font-size:0.68rem; color:var(--muted); letter-spacing:0.05em; }
+  .dropdown hr{ border:none; border-top:1px solid var(--line); margin:2px 0; }
+  #logout-btn{
+    background:none; border:1px solid var(--line-strong); color:var(--cream); padding:9px;
+    cursor:pointer; font-size:0.75rem; letter-spacing:0.1em; text-transform:uppercase;
+    transition:border-color .2s ease, color .2s ease;
+  }
+  #logout-btn:hover{ border-color:var(--gold); color:var(--gold-bright); }
+
+  .dash-content{
+    max-width:1080px; width:100%; margin:0 auto; padding:36px 24px 80px;
+    display:flex; flex-direction:column; gap:48px;
+  }
+  .dash-content > section{ animation:fadeUp .6s ease both; }
+  .dash-content > section:nth-of-type(1){ animation-delay:.05s; }
+  .dash-content > section:nth-of-type(2){ animation-delay:.12s; }
+  .dash-content > section:nth-of-type(3){ animation-delay:.19s; }
+  .dash-content > section:nth-of-type(4){ animation-delay:.26s; }
+  .dash-content > section:nth-of-type(5){ animation-delay:.33s; }
+  .dash-content > section:nth-of-type(6){ animation-delay:.40s; }
+
+  /* Hero */
+  .hero{ display:flex; align-items:center; gap:48px; flex-wrap:wrap; }
+  .ring-wrap{ position:relative; width:200px; height:200px; flex:0 0 auto; border-radius:50%; }
+  .ring-wrap.perfect{ animation:glowPulse 1.1s ease 2; }
+  .progress-ring{ width:200px; height:200px; transform:rotate(-90deg); }
+  .ring-bg{ fill:none; stroke:var(--line); stroke-width:6; }
+  .ring-fg{ fill:none; stroke:var(--gold); stroke-width:6; stroke-linecap:round; transition:stroke-dashoffset .9s cubic-bezier(.65,0,.35,1); }
+  .ring-label{
+    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  }
+  .ring-percent{ font-family:var(--font-display); font-size:2.6rem; color:var(--cream); line-height:1; }
+  .ring-caption{ font-family:var(--font-mono); font-size:0.62rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-top:6px; }
+
+  .hero-stats{ display:flex; align-items:center; gap:28px; flex-wrap:wrap; flex:1; position:relative; }
+  .hero-stat{ display:flex; flex-direction:column; gap:4px; }
+  .hero-stat-num{ font-family:var(--font-display); font-size:2.4rem; color:var(--gold-bright); line-height:1; }
+  .hero-stat-label{ font-family:var(--font-mono); font-size:0.62rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); }
+  .hero-divider{ width:1px; height:46px; background:var(--line-strong); }
+  .hero-greeting{
+    width:100%; margin-top:8px; font-family:var(--font-display); font-style:italic; font-size:1.15rem; color:var(--muted);
+  }
+
+  /* Section heads */
+  .section-head{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:18px; flex-wrap:wrap; }
+  .section-head h2{
+    font-family:var(--font-mono); font-style:normal; font-size:0.78rem; letter-spacing:0.16em;
+    text-transform:uppercase; color:var(--muted); font-weight:600;
+  }
+  .section-sub{ font-family:var(--font-mono); font-size:0.68rem; letter-spacing:0.08em; color:#615c52; }
+  .section-head-actions{ display:flex; align-items:center; gap:14px; }
+
+  /* Rituals list */
+  .add-ritual-row{ display:flex; gap:10px; margin-bottom:18px; }
+  .add-ritual-row input{ flex:1; }
+
+  .rituals-list{ display:flex; flex-direction:column; gap:12px; }
+  .ritual-row{
+    display:flex; flex-direction:column; gap:10px; padding:16px 18px;
+    border:1px solid var(--line); background:var(--charcoal);
+  }
+  .ritual-row.is-partial{ border-color:rgba(194,104,95,0.55); }
+  .ritual-row.is-complete{ opacity:0.62; }
+
+  .ritual-top{ display:flex; align-items:flex-start; gap:14px; }
+  .ritual-check{
+    position:relative; width:30px; height:30px; border-radius:50%; flex:0 0 auto; margin-top:1px;
+    border:1.5px solid var(--line-strong); background:transparent; cursor:pointer;
+    transition:background .25s ease, border-color .25s ease, transform .15s ease;
+  }
+  .ritual-check:hover{ border-color:var(--gold); }
+  .ritual-check.checked{ background:var(--gold); border-color:var(--gold); }
+  .ritual-check.checked::before{
+    content:'✓'; position:absolute; inset:0; color:#1a1408; font-size:15px; line-height:28px; text-align:center;
+  }
+  .ritual-check.punch{ animation:punch .35s ease; }
+  .ritual-check.stamping::after{
+    content:''; position:absolute; inset:-6px; border:2px solid var(--gold); border-radius:50%;
+    opacity:1; transform:scale(0.6); animation:stampRing .55s ease-out forwards; pointer-events:none;
+  }
+  .ritual-check:disabled{ cursor:default; opacity:0.4; }
+
+  .ritual-main{ flex:1; min-width:0; }
+  .ritual-name-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .ritual-name{ font-size:0.98rem; color:var(--cream); }
+  .ritual-row.is-complete .ritual-name{ text-decoration:line-through; text-decoration-color:var(--muted); }
+  .ritual-dates{
+    font-family:var(--font-mono); font-size:0.7rem; color:var(--muted); margin-top:5px; letter-spacing:0.03em;
+  }
+  .ritual-streak{
+    font-family:var(--font-mono); font-size:0.74rem; color:var(--gold-bright);
+    border:1px solid var(--line-strong); padding:3px 9px; white-space:nowrap;
+  }
+  .ritual-delete{
+    background:none; border:none; color:var(--muted); font-size:1.1rem; cursor:pointer;
+    opacity:0; transition:opacity .2s ease, color .2s ease; padding:2px 6px; line-height:1; flex:0 0 auto;
+  }
+  .ritual-row:hover .ritual-delete, .ritual-delete:focus-visible{ opacity:1; }
+  .ritual-delete:hover{ color:var(--error); }
+
+  .empty-state{
+    font-family:var(--font-display); font-style:italic; color:var(--muted); font-size:1.15rem;
+    padding:28px 4px; border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+  }
+
+  /* ============ TASKS (date-range goals) ============ */
+  .task-filter-row{ display:flex; gap:8px; flex-wrap:wrap; }
+  .task-filter-btn{
+    background:none; border:1px solid var(--line-strong); color:var(--muted);
+    font-family:var(--font-mono); font-size:0.66rem; letter-spacing:0.08em; text-transform:uppercase;
+    padding:7px 12px; cursor:pointer; transition:all .2s ease;
+  }
+  .task-filter-btn:hover{ color:var(--cream); border-color:var(--gold); }
+  .task-filter-btn.active{ background:var(--gold); border-color:var(--gold); color:#1a1408; }
+
+  .task-form{
+    display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:14px; margin-bottom:22px;
+    background:var(--charcoal); border:1px solid var(--line); padding:18px; align-items:end;
+  }
+  .task-form label{ gap:6px; }
+  .task-form .full-row{ grid-column:1 / -1; }
+  .task-form-actions{ grid-column:1 / -1; display:flex; gap:10px; justify-content:flex-end; margin-top:4px; }
+
+  .tasks-list{ display:flex; flex-direction:column; gap:12px; }
+  .task-card{
+    border:1px solid var(--line); background:var(--charcoal); padding:18px 20px;
+    display:flex; flex-direction:column; gap:12px; position:relative; transition:border-color .2s ease;
+  }
+  .task-card.is-overdue{ border-color:rgba(194,104,95,0.55); }
+  .task-card.is-partial{ border-color:rgba(194,104,95,0.55); }
+  .task-card.is-complete{ opacity:0.62; }
+
+  .task-top{ display:flex; align-items:flex-start; gap:14px; }
+  .task-check{
+    position:relative; width:26px; height:26px; border-radius:6px; flex:0 0 auto; margin-top:2px;
+    border:1.5px solid var(--line-strong); background:transparent; cursor:pointer;
+    transition:background .25s ease, border-color .25s ease, transform .15s ease;
+  }
+  .task-check:hover{ border-color:var(--gold); }
+  .task-check.checked{ background:var(--gold); border-color:var(--gold); }
+  .task-check.checked::before{
+    content:'✓'; position:absolute; inset:0; color:#1a1408; font-size:14px; line-height:23px; text-align:center;
+  }
+  .task-check.punch{ animation:punch .35s ease; }
+
+  .task-main{ flex:1; min-width:0; }
+  .task-name-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .task-name{ font-size:1rem; color:var(--cream); }
+  .task-card.is-complete .task-name{ text-decoration:line-through; text-decoration-color:var(--muted); }
+  .prio-pill{
+    font-family:var(--font-mono); font-size:0.6rem; letter-spacing:0.08em; text-transform:uppercase;
+    padding:2px 8px; border-radius:3px; border:1px solid; white-space:nowrap;
+  }
+  .prio-pill.high{ color:var(--prio-high); border-color:var(--prio-high); background:rgba(194,104,95,0.1); }
+  .prio-pill.medium{ color:var(--prio-med); border-color:var(--prio-med); background:rgba(201,162,75,0.1); }
+  .prio-pill.low{ color:var(--prio-low); border-color:var(--prio-low); background:rgba(111,154,122,0.1); }
+  .overdue-pill{
+    font-family:var(--font-mono); font-size:0.6rem; letter-spacing:0.08em; text-transform:uppercase;
+    padding:2px 8px; border-radius:3px; border:1px solid var(--error); color:var(--error); background:rgba(194,104,95,0.1);
+    white-space:nowrap;
+  }
+  .task-dates{
+    font-family:var(--font-mono); font-size:0.7rem; color:var(--muted); margin-top:5px; letter-spacing:0.03em;
+  }
+  .task-delete{
+    background:none; border:none; color:var(--muted); font-size:1.1rem; cursor:pointer;
+    opacity:0; transition:opacity .2s ease, color .2s ease; padding:2px 6px; line-height:1; flex:0 0 auto;
+  }
+  .task-card:hover .task-delete, .task-delete:focus-visible{ opacity:1; }
+  .task-delete:hover{ color:var(--error); }
+
+  .task-progress-row{ display:flex; align-items:center; gap:12px; }
+  .task-progress-track{
+    flex:1; height:6px; background:var(--charcoal-2); border-radius:3px; overflow:hidden;
+    border:1px solid var(--line);
+  }
+  .task-progress-fill{ height:100%; background:linear-gradient(90deg,var(--gold-dim),var(--gold-bright)); transition:width .5s cubic-bezier(.65,0,.35,1); }
+  .task-progress-fill.partial{ background:linear-gradient(90deg,var(--prio-high),#d98f86); }
+  .task-progress-pct{ font-family:var(--font-mono); font-size:0.78rem; color:var(--muted); white-space:nowrap; }
+
+  .status-pill{
+    font-family:var(--font-mono); font-size:0.6rem; letter-spacing:0.08em; text-transform:uppercase;
+    padding:2px 8px; border-radius:3px; border:1px solid; white-space:nowrap;
+  }
+  .status-pill.complete{ color:var(--prio-low); border-color:var(--prio-low); background:rgba(111,154,122,0.1); }
+  .status-pill.partial{ color:var(--error); border-color:var(--error); background:rgba(194,104,95,0.1); }
+  .status-pill.upcoming{ color:var(--muted); border-color:var(--line-strong); background:rgba(141,134,120,0.08); }
+
+  .task-days-toggle{
+    background:none; border:none; color:var(--muted); font-family:var(--font-mono); font-size:0.68rem;
+    letter-spacing:0.06em; cursor:pointer; text-decoration:underline; text-underline-offset:3px;
+    text-decoration-color:var(--line-strong); padding:2px 0; align-self:flex-start; transition:color .2s ease;
+  }
+  .task-days-toggle:hover{ color:var(--gold-bright); }
+
+  .task-days-grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(34px, 1fr)); gap:6px; margin-top:6px;
+  }
+  .task-day-cell{
+    position:relative; aspect-ratio:1/1; min-height:34px; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:2px; background:var(--charcoal-2);
+    border:1px solid var(--line); cursor:pointer; transition:border-color .2s ease, background .2s ease;
+  }
+  .task-day-cell:hover{ border-color:var(--gold); }
+  .task-day-cell.checked{ background:rgba(201,162,75,0.22); border-color:var(--gold); }
+  .task-day-cell.checked::after{ content:'✓'; color:var(--gold-bright); font-size:0.85rem; line-height:1; }
+  .task-day-cell.is-today{ border-color:var(--gold-bright); box-shadow:0 0 0 1px var(--gold-bright) inset; }
+  .task-day-cell.is-future{ opacity:0.45; cursor:default; }
+  .task-day-cell .day-num{ font-family:var(--font-mono); font-size:0.62rem; color:var(--muted); }
+  .task-day-cell.checked .day-num{ color:var(--gold-bright); }
+  .task-day-cell.punch{ animation:punch .35s ease; }
+
+  /* Ledger calendar */
+  .ledger-weekdays{
+    display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:8px;
+    font-family:var(--font-mono); font-size:0.64rem; color:var(--muted); text-align:center; letter-spacing:0.05em;
+  }
+  .ledger-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+  .ledger-cell{
+    aspect-ratio:1/1; display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-mono); font-size:0.68rem; background:var(--charcoal-2);
+    border:1px solid transparent; transition:transform .15s ease;
+  }
+  .ledger-cell:not(.empty):hover{ transform:scale(1.12); z-index:2; }
+  .ledger-cell.empty{ background:transparent; }
+  .ledger-cell.is-today{ border-color:var(--gold-bright); }
+
+  /* Stats */
+  .stats-section{ display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--line); }
+  .stat-card{
+    background:var(--black); padding:22px 16px; display:flex; flex-direction:column; gap:6px; align-items:center; text-align:center;
+  }
+  .stat-num{ font-family:var(--font-mono); font-size:1.5rem; color:var(--gold-bright); }
+  .stat-label{ font-family:var(--font-mono); font-size:0.6rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); }
+
+  /* Charts (production dashboard) */
+  .charts-grid{ display:grid; grid-template-columns:1.3fr 1fr; gap:1px; background:var(--line); }
+  .chart-card{ background:var(--black); padding:22px 24px; display:flex; flex-direction:column; gap:14px; }
+  .chart-card h3{
+    font-family:var(--font-mono); font-size:0.68rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); font-weight:600;
+  }
+
+  .bars-chart{ display:flex; align-items:flex-end; gap:8px; height:140px; }
+  .bar-col{ flex:1; display:flex; flex-direction:column; align-items:center; gap:8px; height:100%; justify-content:flex-end; }
+  .bar-track{ width:100%; max-width:26px; height:100%; display:flex; align-items:flex-end; }
+  .bar-fill{
+    width:100%; background:linear-gradient(180deg,var(--gold-bright),var(--gold-dim));
+    border-radius:3px 3px 0 0; transform-origin:bottom; animation:barGrow .6s cubic-bezier(.3,1,.4,1) both;
+    min-height:2px;
+  }
+  .bar-label{ font-family:var(--font-mono); font-size:0.6rem; color:var(--muted); letter-spacing:0.03em; }
+
+  .donut-wrap{ display:flex; align-items:center; gap:22px; flex-wrap:wrap; justify-content:center; }
+  .donut-svg{ width:128px; height:128px; flex:0 0 auto; }
+  .donut-legend{ display:flex; flex-direction:column; gap:8px; }
+  .legend-row{ display:flex; align-items:center; gap:8px; font-family:var(--font-mono); font-size:0.7rem; color:var(--muted); }
+  .legend-swatch{ width:10px; height:10px; border-radius:2px; flex:0 0 auto; }
+
+  /* Toast */
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--charcoal-2); border:1px solid var(--line-strong); color:var(--cream);
+    padding:13px 22px; opacity:0; pointer-events:none; transition:all .3s ease;
+    font-size:0.85rem; z-index:999; max-width:88vw; text-align:center;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width:760px){
+    .hero{ flex-direction:column; align-items:flex-start; gap:28px; }
+    .hero-stats{ width:100%; }
+    .stats-section{ grid-template-columns:repeat(2,1fr); }
+    .charts-grid{ grid-template-columns:1fr; }
+    .task-form{ grid-template-columns:1fr 1fr; }
+  }
+  @media (max-width:600px){
+    .topbar{ padding:14px 18px; }
+    .brand-mini span{ font-size:1.05rem; }
+    .topbar-date{ display:none; }
+    .dash-content{ padding:28px 16px 64px; gap:38px; }
+    .ring-wrap, .progress-ring{ width:160px; height:160px; }
+    .ring-percent{ font-size:2.1rem; }
+    .hero-stat-num{ font-size:1.9rem; }
+    .ritual-name{ font-size:0.9rem; }
+    .ritual-streak{ font-size:0.68rem; padding:2px 7px; }
+    .auth-card{ padding:6px 18px 22px; }
+    .task-form{ grid-template-columns:1fr; }
+  }
+  @media (max-width:420px){
+    .wordmark{ font-size:2rem; }
+    .ledger-cell{ font-size:0.6rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{
+      animation-duration:0.001ms !important; animation-iteration-count:1 !important;
+      transition-duration:0.001ms !important; scroll-behavior:auto !important;
+    }
+  }
+</style>
+</head>
+<body>
+<div id="bg-texture"></div>
+
+<!-- ============ AUTH SCREEN ============ -->
+<main id="auth-screen" class="screen">
+  <div class="auth-wrap">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 60 60" fill="none" aria-hidden="true">
+        <circle cx="30" cy="30" r="26" stroke="currentColor" stroke-width="1.2"/>
+        <line x1="30" y1="6" x2="30" y2="14" stroke="currentColor" stroke-width="1.2"/>
+        <line x1="30" y1="46" x2="30" y2="54" stroke="currentColor" stroke-width="1.2"/>
+        <line x1="6" y1="30" x2="14" y2="30" stroke="currentColor" stroke-width="1.2"/>
+        <line x1="46" y1="30" x2="54" y2="30" stroke="currentColor" stroke-width="1.2"/>
+        <line x1="30" y1="30" x2="30" y2="14" stroke="currentColor" stroke-width="1.4"/>
+        <circle cx="30" cy="30" r="3" fill="currentColor"/>
+      </svg>
+      <h1 class="wordmark">RITUAL</h1>
+      <p class="tagline">A private ledger for daily discipline</p>
+    </div>
+
+    <div class="auth-card" id="auth-card">
+      <p id="storage-warning" class="storage-warning" hidden></p>
+      <div class="tabs" id="tabs-row">
+        <button class="tab active" data-tab="login" type="button">Sign In</button>
+        <button class="tab" data-tab="register" type="button">Register</button>
+        <span class="tab-indicator" id="tab-indicator"></span>
+      </div>
+
+      <form id="login-form" class="panel active" autocomplete="on">
+        <label>User ID
+          <input type="text" id="login-userid" autocomplete="username" required>
+        </label>
+        <label>Password
+          <input type="password" id="login-password" autocomplete="current-password" required>
+        </label>
+        <p class="form-error" id="login-error"></p>
+        <button type="submit" class="btn-gold" id="login-submit"><span class="btn-text">Sign In</span></button>
+        <button type="button" class="link-btn" id="forgot-link">Forgot password?</button>
+      </form>
+
+      <form id="register-form" class="panel" autocomplete="on">
+        <label>Display Name
+          <input type="text" id="reg-name" autocomplete="name" required>
+        </label>
+        <label>User ID
+          <input type="text" id="reg-userid" autocomplete="username" required>
+        </label>
+        <label>Password
+          <input type="password" id="reg-password" autocomplete="new-password" required>
+        </label>
+        <label>Confirm Password
+          <input type="password" id="reg-confirm" autocomplete="new-password" required>
+        </label>
+        <label>Security Question
+          <select id="reg-question" required>
+            <option value="" disabled selected>Choose a question</option>
+            <option>What grounds your discipline?</option>
+            <option>What is the name of your first mentor?</option>
+            <option>What city were you born in?</option>
+            <option>What is your guiding principle?</option>
+          </select>
+        </label>
+        <label>Security Answer
+          <input type="text" id="reg-answer" required>
+        </label>
+        <p class="form-error" id="register-error"></p>
+        <button type="submit" class="btn-gold" id="register-submit"><span class="btn-text">Create Account</span></button>
+      </form>
+
+      <div id="forgot-panel" class="panel" style="display:none;">
+        <div id="forgot-step-1">
+          <label>User ID
+            <input type="text" id="forgot-userid">
+          </label>
+          <p class="form-error" id="forgot-error-1"></p>
+          <button type="button" class="btn-gold" id="forgot-find-btn" style="margin-top:18px;width:100%;"><span class="btn-text">Continue</span></button>
+        </div>
+        <div id="forgot-step-2" hidden>
+          <p class="security-question" id="forgot-question-text"></p>
+          <label style="margin-top:14px;">Your Answer
+            <input type="text" id="forgot-answer">
+          </label>
+          <p class="form-error" id="forgot-error-2"></p>
+          <button type="button" class="btn-gold" id="forgot-verify-btn" style="margin-top:18px;width:100%;"><span class="btn-text">Verify</span></button>
+        </div>
+        <div id="forgot-step-3" hidden>
+          <label>New Password
+            <input type="password" id="forgot-new-password">
+          </label>
+          <label style="margin-top:14px;">Confirm New Password
+            <input type="password" id="forgot-new-confirm">
+          </label>
+          <p class="form-error" id="forgot-error-3"></p>
+          <button type="button" class="btn-gold" id="forgot-reset-btn" style="margin-top:18px;width:100%;"><span class="btn-text">Reset Password</span></button>
+        </div>
+        <p class="form-success" id="forgot-success" style="margin-top:14px;"></p>
+        <button type="button" class="link-btn" id="back-to-login" style="margin-top:18px;width:100%;">Back to Sign In</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ============ DASHBOARD SCREEN ============ -->
+<main id="dashboard-screen" class="screen" hidden>
+  <nav class="topbar">
+    <div class="brand-mini">
+      <svg class="brand-mark-mini" viewBox="0 0 60 60" fill="none" aria-hidden="true">
+        <circle cx="30" cy="30" r="26" stroke="currentColor" stroke-width="1.6"/>
+        <line x1="30" y1="6" x2="30" y2="14" stroke="currentColor" stroke-width="1.6"/>
+        <line x1="30" y1="46" x2="30" y2="54" stroke="currentColor" stroke-width="1.6"/>
+        <line x1="6" y1="30" x2="14" y2="30" stroke="currentColor" stroke-width="1.6"/>
+        <line x1="46" y1="30" x2="54" y2="30" stroke="currentColor" stroke-width="1.6"/>
+        <line x1="30" y1="30" x2="30" y2="14" stroke="currentColor" stroke-width="1.8"/>
+        <circle cx="30" cy="30" r="3.2" fill="currentColor"/>
+      </svg>
+      <span>RITUAL</span>
+    </div>
+    <div class="topbar-date" id="topbar-date"></div>
+    <div class="user-menu">
+      <button class="avatar" id="avatar-btn" aria-label="Account menu"></button>
+      <div class="dropdown" id="user-dropdown" hidden>
+        <span class="dropdown-name" id="dropdown-name"></span>
+        <span class="dropdown-since" id="dropdown-since"></span>
+        <hr>
+        <button id="logout-btn" type="button">Sign Out</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="dash-content">
+    <section class="hero">
+      <div class="ring-wrap" id="ring-wrap">
+        <svg class="progress-ring" viewBox="0 0 200 200" aria-hidden="true">
+          <circle class="ring-bg" cx="100" cy="100" r="86"/>
+          <circle class="ring-fg" id="ring-fg" cx="100" cy="100" r="86"/>
+        </svg>
+        <div class="ring-label">
+          <span class="ring-percent" id="ring-percent">0%</span>
+          <span class="ring-caption">Today's Discipline</span>
+        </div>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <span class="hero-stat-num" id="stat-streak">0</span>
+          <span class="hero-stat-label">Day Streak</span>
+        </div>
+        <div class="hero-divider"></div>
+        <div class="hero-stat">
+          <span class="hero-stat-num" id="stat-best">0</span>
+          <span class="hero-stat-label">Longest Streak</span>
+        </div>
+        <div class="hero-divider"></div>
+        <div class="hero-stat">
+          <span class="hero-stat-num" id="stat-tasks-open">0</span>
+          <span class="hero-stat-label">Tasks Open</span>
+        </div>
+        <p class="hero-greeting" id="hero-greeting"></p>
+      </div>
+    </section>
+
+    <section class="rituals-section">
+      <div class="section-head">
+        <h2>Today's Rituals</h2>
+        <div class="section-head-actions">
+          <span class="section-sub" id="rituals-count-sub"></span>
+          <button id="add-ritual-btn" class="link-btn" type="button">+ Add a ritual</button>
+        </div>
+      </div>
+
+      <form class="task-form" id="ritual-form" hidden>
+        <label class="full-row">Ritual name
+          <input type="text" id="new-ritual-input" placeholder="e.g. Morning meditation" maxlength="60" required>
+        </label>
+        <label>Start date
+          <input type="date" id="ritual-start-input" required>
+        </label>
+        <label>End date
+          <input type="date" id="ritual-end-input" required>
+        </label>
+        <div style="display:flex; align-items:flex-end;">
+          <span class="section-sub" style="line-height:1.4;">Runs every day in this range</span>
+        </div>
+        <p class="form-error full-row" id="ritual-form-error"></p>
+        <div class="task-form-actions">
+          <button type="button" class="btn-ghost-sm" id="cancel-add-ritual">Cancel</button>
+          <button type="submit" class="btn-gold-sm" id="confirm-add-ritual">Add ritual</button>
+        </div>
+      </form>
+
+      <div class="task-filter-row" id="ritual-filter-row" style="margin-bottom:16px;">
+        <button class="task-filter-btn active" data-filter="all" type="button">All</button>
+        <button class="task-filter-btn" data-filter="active" type="button">Active Today</button>
+        <button class="task-filter-btn" data-filter="partial" type="button">Partial</button>
+        <button class="task-filter-btn" data-filter="completed" type="button">Completed</button>
+      </div>
+
+      <ul id="rituals-list" class="rituals-list"></ul>
+      <p id="rituals-empty" class="empty-state" hidden>Your ledger is empty. Add your first ritual to begin.</p>
+    </section>
+
+    <section class="tasks-section">
+      <div class="section-head">
+        <h2>Tasks &amp; Goals</h2>
+        <div class="section-head-actions">
+          <span class="section-sub" id="tasks-count-sub"></span>
+          <button id="add-task-btn" class="link-btn" type="button">+ Add a task</button>
+        </div>
+      </div>
+
+      <form class="task-form" id="task-form" hidden>
+        <label class="full-row">Task name
+          <input type="text" id="task-name-input" placeholder="e.g. Finish quarterly report" maxlength="80" required>
+        </label>
+        <label>Start date
+          <input type="date" id="task-start-input" required>
+        </label>
+        <label>Due date
+          <input type="date" id="task-end-input" required>
+        </label>
+        <label>Priority
+          <select id="task-priority-input">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+        </label>
+        <p class="form-error full-row" id="task-form-error"></p>
+        <div class="task-form-actions">
+          <button type="button" class="btn-ghost-sm" id="cancel-add-task">Cancel</button>
+          <button type="submit" class="btn-gold-sm" id="confirm-add-task">Add task</button>
+        </div>
+      </form>
+
+      <div class="task-filter-row" id="task-filter-row" style="margin-bottom:16px;">
+        <button class="task-filter-btn active" data-filter="all" type="button">All</button>
+        <button class="task-filter-btn" data-filter="active" type="button">In Progress</button>
+        <button class="task-filter-btn" data-filter="partial" type="button">Partial</button>
+        <button class="task-filter-btn" data-filter="completed" type="button">Completed</button>
+      </div>
+
+      <ul id="tasks-list" class="tasks-list"></ul>
+      <p id="tasks-empty" class="empty-state" hidden>No tasks here. Add a goal with a start and due date to track it.</p>
+    </section>
+
+    <section class="charts-section">
+      <div class="section-head">
+        <h2>Production Overview</h2>
+        <span class="section-sub">Rituals + tasks, last 7 days</span>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>Daily Completion — Last 7 Days</h3>
+          <div class="bars-chart" id="bars-chart"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Task Breakdown</h3>
+          <div class="donut-wrap" id="donut-wrap"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="ledger-section">
+      <div class="section-head">
+        <h2>The Ledger</h2>
+        <span class="section-sub">Last 35 days</span>
+      </div>
+      <div class="ledger-weekdays">
+        <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+      </div>
+      <div id="ledger-grid" class="ledger-grid"></div>
+    </section>
+
+    <section class="stats-section" id="stats-section"></section>
+  </div>
+</main>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ---------- helpers ---------- */
+  const $ = (sel, p) => (p||document).querySelector(sel);
+  const $$ = (sel, p) => Array.from((p||document).querySelectorAll(sel));
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // Lightweight, dependency-free hash for obscuring stored passwords/answers.
+  // Not real cryptography (no crypto.subtle dependency, so it works in every
+  // browser context, including file:// pages) — fine for this personal-use app,
+  // but don't reuse a sensitive password here.
+  function hashValue(str){
+    str = String(str);
+    let h1 = 0xdeadbeef ^ str.length, h2 = 0x41c6ce57 ^ str.length;
+    for(let i = 0; i < str.length; i++){
+      const ch = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761);
+      h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return (h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0');
+  }
+
+  function todayStr(){ return new Date().toLocaleDateString('en-CA'); }
+
+  function showToast(msg){
+    let t = $('#toast');
+    if(!t){ t = document.createElement('div'); t.id='toast'; t.className='toast'; document.body.appendChild(t); }
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(window.__toastTimer);
+    window.__toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  function setLoading(btn, loading, label){
+    const span = btn.querySelector('.btn-text');
+    btn.disabled = loading;
+    if(loading){
+      btn.dataset.label = span.textContent;
+      span.innerHTML = '<span class="spinner"></span>';
+    } else {
+      span.textContent = label || btn.dataset.label || span.textContent;
+    }
+  }
+
+  function formatDateShort(dStr){
+    const d = new Date(dStr + 'T00:00:00');
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  function dateRange(startStr, endStr){
+    const dates = [];
+    let d = new Date(startStr + 'T00:00:00');
+    const end = new Date(endStr + 'T00:00:00');
+    let guard = 0;
+    while(d <= end && guard < 3660){
+      dates.push(d.toLocaleDateString('en-CA'));
+      d.setDate(d.getDate() + 1);
+      guard++;
+    }
+    return dates;
+  }
+
+  /* ---------- storage layer (browser localStorage — persists per browser/device) ---------- */
+  function loadAccounts(){
+    try{
+      const raw = localStorage.getItem('ledger:accounts');
+      return raw ? JSON.parse(raw) : {};
+    }catch(e){ console.error(e); return {}; }
+  }
+  function saveAccounts(accounts){
+    try{ localStorage.setItem('ledger:accounts', JSON.stringify(accounts)); return true; }
+    catch(e){ console.error(e); showToast("Couldn't save — your browser storage may be full or blocked."); return false; }
+  }
+  function farFutureDate(fromStr){
+    const d = new Date(fromStr + 'T00:00:00');
+    d.setFullYear(d.getFullYear() + 1);
+    return d.toLocaleDateString('en-CA');
+  }
+
+  function loadUserData(userid){
+    try{
+      const raw = localStorage.getItem('ledger:userdata:' + userid);
+      const data = raw ? JSON.parse(raw) : { rituals: [], logs: {}, tasks: [] };
+      if(!Array.isArray(data.tasks)) data.tasks = [];
+      data.tasks.forEach(t => { if(!t.dayLogs) t.dayLogs = {}; });
+      if(!Array.isArray(data.rituals)) data.rituals = [];
+      // Migrate legacy rituals (created before date ranges existed) — give them
+      // a start date of today and a generous one-year end date so nothing
+      // they'd already logged disappears, and they keep working day to day.
+      let migrated = false;
+      data.rituals.forEach(r => {
+        if(!r.startDate || !r.endDate){
+          r.startDate = r.startDate || todayStr();
+          r.endDate = r.endDate || farFutureDate(r.startDate);
+          migrated = true;
+        }
+      });
+      if(migrated) saveUserData(userid, data);
+      return data;
+    }catch(e){ console.error(e); return { rituals: [], logs: {}, tasks: [] }; }
+  }
+  function saveUserData(userid, data){
+    try{ localStorage.setItem('ledger:userdata:' + userid, JSON.stringify(data)); return true; }
+    catch(e){ console.error(e); showToast("Couldn't save changes — your browser storage may be full or blocked."); return false; }
+  }
+
+  /* ---------- app state ---------- */
+  let currentUser = null;
+  let currentDisplayName = '';
+  let currentSince = '';
+  let userData = { rituals: [], logs: {}, tasks: [] };
+  let taskFilter = 'all';
+
+  /* ---------- auth screen wiring ---------- */
+  const authScreen = $('#auth-screen');
+  const dashboardScreen = $('#dashboard-screen');
+  const authCard = $('#auth-card');
+  const tabsRow = $('#tabs-row');
+  const tabIndicator = $('#tab-indicator');
+
+  function setActiveTab(name){
+    $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    tabIndicator.classList.toggle('register', name === 'register');
+    $('#login-form').classList.toggle('active', name === 'login');
+    $('#register-form').classList.toggle('active', name === 'register');
+    $('#login-form').style.display = name === 'login' ? 'flex' : 'none';
+    $('#register-form').style.display = name === 'register' ? 'flex' : 'none';
+    $('#forgot-panel').style.display = 'none';
+    tabsRow.style.display = 'flex';
+  }
+
+  $$('.tab').forEach(t => t.addEventListener('click', () => setActiveTab(t.dataset.tab)));
+
+  $('#forgot-link').addEventListener('click', () => {
+    tabsRow.style.display = 'none';
+    $('#login-form').style.display = 'none';
+    $('#register-form').style.display = 'none';
+    $('#forgot-panel').style.display = 'flex';
+    $('#forgot-panel').style.flexDirection = 'column';
+    resetForgotFlow();
+  });
+
+  $('#back-to-login').addEventListener('click', () => setActiveTab('login'));
+
+  function resetForgotFlow(){
+    $('#forgot-step-1').hidden = false;
+    $('#forgot-step-2').hidden = true;
+    $('#forgot-step-3').hidden = true;
+    $('#forgot-userid').value = '';
+    $('#forgot-answer').value = '';
+    $('#forgot-new-password').value = '';
+    $('#forgot-new-confirm').value = '';
+    $('#forgot-error-1').textContent = '';
+    $('#forgot-error-2').textContent = '';
+    $('#forgot-error-3').textContent = '';
+    $('#forgot-success').textContent = '';
+  }
+
+  function shakeCard(){
+    authCard.classList.remove('shake');
+    void authCard.offsetWidth;
+    authCard.classList.add('shake');
+  }
+
+  /* ---------- login ---------- */
+  $('#login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errEl = $('#login-error');
+    errEl.textContent = '';
+    const userid = $('#login-userid').value.trim().toLowerCase();
+    const password = $('#login-password').value;
+    if(!userid || !password) return;
+
+    const btn = $('#login-submit');
+    setLoading(btn, true);
+    const accounts = await loadAccounts();
+    const account = accounts[userid];
+    if(!account){
+      setLoading(btn, false, 'Sign In');
+      errEl.textContent = 'No account found with that User ID.';
+      shakeCard();
+      return;
+    }
+    const hash = hashValue(password);
+    if(hash !== account.passwordHash){
+      setLoading(btn, false, 'Sign In');
+      errEl.textContent = 'Incorrect password.';
+      shakeCard();
+      return;
+    }
+    currentUser = userid;
+    currentDisplayName = account.displayName;
+    currentSince = account.createdAt;
+    userData = await loadUserData(userid);
+    setLoading(btn, false, 'Sign In');
+    $('#login-form').reset();
+    enterDashboard();
+  });
+
+  /* ---------- register ---------- */
+  $('#register-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errEl = $('#register-error');
+    errEl.textContent = '';
+    const name = $('#reg-name').value.trim();
+    const userid = $('#reg-userid').value.trim().toLowerCase();
+    const password = $('#reg-password').value;
+    const confirm = $('#reg-confirm').value;
+    const question = $('#reg-question').value;
+    const answer = $('#reg-answer').value.trim();
+
+    if(!name || !userid || !password || !confirm || !question || !answer) return;
+    if(userid.length < 3){ errEl.textContent = 'User ID must be at least 3 characters.'; return; }
+    if(password.length < 6){ errEl.textContent = 'Password must be at least 6 characters.'; return; }
+    if(password !== confirm){ errEl.textContent = 'Passwords do not match.'; shakeCard(); return; }
+
+    const btn = $('#register-submit');
+    setLoading(btn, true);
+    const accounts = await loadAccounts();
+    if(accounts[userid]){
+      setLoading(btn, false, 'Create Account');
+      errEl.textContent = 'That User ID is already taken.';
+      return;
+    }
+    const passwordHash = hashValue(password);
+    const securityAnswerHash = hashValue(answer.toLowerCase());
+    const createdAt = todayStr();
+    accounts[userid] = { userid, displayName: name, passwordHash, securityQuestion: question, securityAnswerHash, createdAt };
+    const ok = await saveAccounts(accounts);
+    if(!ok){ setLoading(btn, false, 'Create Account'); return; }
+    await saveUserData(userid, { rituals: [], logs: {}, tasks: [] });
+
+    currentUser = userid;
+    currentDisplayName = name;
+    currentSince = createdAt;
+    userData = { rituals: [], logs: {}, tasks: [] };
+    setLoading(btn, false, 'Create Account');
+    $('#register-form').reset();
+    enterDashboard();
+  });
+
+  /* ---------- forgot password ---------- */
+  let forgotFoundUserid = null;
+
+  $('#forgot-find-btn').addEventListener('click', async () => {
+    const errEl = $('#forgot-error-1');
+    errEl.textContent = '';
+    const userid = $('#forgot-userid').value.trim().toLowerCase();
+    if(!userid){ errEl.textContent = 'Enter your User ID.'; return; }
+    const btn = $('#forgot-find-btn');
+    setLoading(btn, true);
+    const accounts = await loadAccounts();
+    setLoading(btn, false, 'Continue');
+    const account = accounts[userid];
+    if(!account){ errEl.textContent = 'No account found with that User ID.'; return; }
+    forgotFoundUserid = userid;
+    $('#forgot-question-text').textContent = account.securityQuestion;
+    $('#forgot-step-1').hidden = true;
+    $('#forgot-step-2').hidden = false;
+  });
+
+  $('#forgot-verify-btn').addEventListener('click', async () => {
+    const errEl = $('#forgot-error-2');
+    errEl.textContent = '';
+    const answer = $('#forgot-answer').value.trim().toLowerCase();
+    if(!answer){ errEl.textContent = 'Enter your answer.'; return; }
+    const btn = $('#forgot-verify-btn');
+    setLoading(btn, true);
+    const accounts = await loadAccounts();
+    const account = accounts[forgotFoundUserid];
+    const hash = hashValue(answer);
+    setLoading(btn, false, 'Verify');
+    if(!account || hash !== account.securityAnswerHash){
+      errEl.textContent = "That answer doesn't match our records.";
+      shakeCard();
+      return;
+    }
+    $('#forgot-step-2').hidden = true;
+    $('#forgot-step-3').hidden = false;
+  });
+
+  $('#forgot-reset-btn').addEventListener('click', async () => {
+    const errEl = $('#forgot-error-3');
+    errEl.textContent = '';
+    const pw = $('#forgot-new-password').value;
+    const cpw = $('#forgot-new-confirm').value;
+    if(!pw || !cpw) return;
+    if(pw.length < 6){ errEl.textContent = 'Password must be at least 6 characters.'; return; }
+    if(pw !== cpw){ errEl.textContent = 'Passwords do not match.'; return; }
+
+    const btn = $('#forgot-reset-btn');
+    setLoading(btn, true);
+    const accounts = await loadAccounts();
+    accounts[forgotFoundUserid].passwordHash = hashValue(pw);
+    const ok = await saveAccounts(accounts);
+    setLoading(btn, false, 'Reset Password');
+    if(!ok) return;
+    $('#forgot-step-3').hidden = true;
+    $('#forgot-success').textContent = 'Password updated. You can sign in now.';
+    setTimeout(() => {
+      setActiveTab('login');
+      $('#login-userid').value = forgotFoundUserid;
+      forgotFoundUserid = null;
+    }, 1300);
+  });
+
+  /* ---------- dashboard: entry / exit ---------- */
+  function enterDashboard(){
+    authScreen.hidden = true;
+    dashboardScreen.hidden = false;
+    renderDashboard();
+  }
+  function exitToAuth(){
+    currentUser = null;
+    userData = { rituals: [], logs: {}, tasks: [] };
+    $('#user-dropdown').hidden = true;
+    dashboardScreen.hidden = true;
+    authScreen.hidden = false;
+    setActiveTab('login');
+  }
+
+  $('#avatar-btn').addEventListener('click', () => {
+    $('#user-dropdown').hidden = !$('#user-dropdown').hidden;
+  });
+  document.addEventListener('click', (e) => {
+    if(!e.target.closest('.user-menu')) $('#user-dropdown').hidden = true;
+  });
+  $('#logout-btn').addEventListener('click', exitToAuth);
+
+  /* ---------- dashboard: ritual data calculations ----------
+     Rituals now carry a startDate/endDate just like tasks: they only appear
+     as a daily checkbox on days inside that range. Status mirrors tasks:
+       - upcoming  : today is before startDate
+       - active    : today is within range
+       - complete  : range has ended and every day in it was checked
+       - partial   : range has ended and at least one day was missed
+     Per-day completion still lives in userData.logs[date][ritualId], same
+     storage shape as before, so existing logged history is preserved.
+  */
+  function ritualDayKeys(r){ return dateRange(r.startDate, r.endDate); }
+  function ritualDoneCount(r){
+    return ritualDayKeys(r).filter(k => userData.logs[k] && userData.logs[k][r.id]).length;
+  }
+  function ritualTotalDays(r){ return ritualDayKeys(r).length; }
+  function ritualStatus(r){
+    const today = todayStr();
+    if(today < r.startDate) return 'upcoming';
+    if(today > r.endDate){
+      return ritualDoneCount(r) >= ritualTotalDays(r) ? 'complete' : 'partial';
+    }
+    return 'active';
+  }
+  function isRitualActiveToday(r){
+    const today = todayStr();
+    return today >= r.startDate && today <= r.endDate;
+  }
+  function activeRitualsToday(){
+    return userData.rituals.filter(isRitualActiveToday);
+  }
+  function ritualPartialCount(){
+    return userData.rituals.filter(r => ritualStatus(r) === 'partial').length;
+  }
+  function ritualCompleteCount(){
+    return userData.rituals.filter(r => ritualStatus(r) === 'complete').length;
+  }
+
+  function streakFor(ritualId){
+    let streak = 0;
+    let d = new Date();
+    const tKey = todayStr();
+    const doneToday = !!(userData.logs[tKey] && userData.logs[tKey][ritualId]);
+    if(!doneToday) d.setDate(d.getDate() - 1);
+    while(true){
+      const key = d.toLocaleDateString('en-CA');
+      if(userData.logs[key] && userData.logs[key][ritualId]){
+        streak++; d.setDate(d.getDate() - 1);
+      } else break;
+    }
+    return streak;
+  }
+
+  // Streak and "today's discipline" now only consider rituals whose date
+  // range includes the day in question — a ritual that hasn't started yet,
+  // or has already ended, shouldn't block your streak.
+  function overallStreak(){
+    let streak = 0;
+    let d = new Date();
+    const tKey = todayStr();
+    const todaysRituals = userData.rituals.filter(r => r.startDate <= tKey && tKey <= r.endDate);
+    const allToday = todaysRituals.length > 0 && todaysRituals.every(r => userData.logs[tKey] && userData.logs[tKey][r.id]);
+    if(!allToday) d.setDate(d.getDate() - 1);
+    while(true){
+      const key = d.toLocaleDateString('en-CA');
+      const dayLog = userData.logs[key];
+      const dayRituals = userData.rituals.filter(r => r.startDate <= key && key <= r.endDate);
+      const allDone = dayRituals.length > 0 && dayLog && dayRituals.every(r => dayLog[r.id]);
+      if(allDone){ streak++; d.setDate(d.getDate() - 1); } else break;
+    }
+    return streak;
+  }
+
+  function longestStreakEver(){
+    if(userData.rituals.length === 0) return 0;
+    const dates = Object.keys(userData.logs).sort();
+    if(dates.length === 0) return 0;
+    let max = 0, current = 0;
+    let d = new Date(dates[0] + 'T00:00:00');
+    const end = new Date();
+    let guard = 0;
+    while(d <= end && guard < 3650){
+      const key = d.toLocaleDateString('en-CA');
+      const dayLog = userData.logs[key];
+      const dayRituals = userData.rituals.filter(r => r.startDate <= key && key <= r.endDate);
+      const allDone = dayRituals.length > 0 && dayLog && dayRituals.every(r => dayLog[r.id]);
+      if(allDone){ current++; max = Math.max(max, current); } else current = 0;
+      d.setDate(d.getDate() + 1);
+      guard++;
+    }
+    return max;
+  }
+
+  function todayCompletionPercent(){
+    const tKey = todayStr();
+    const todaysRituals = activeRitualsToday();
+    if(todaysRituals.length === 0) return 0;
+    const dayLog = userData.logs[tKey] || {};
+    const done = todaysRituals.filter(r => dayLog[r.id]).length;
+    return Math.round((done / todaysRituals.length) * 100);
+  }
+
+  function totalCompletedAllTime(){
+    let total = 0;
+    Object.values(userData.logs).forEach(day => {
+      total += Object.values(day).filter(Boolean).length;
+    });
+    return total;
+  }
+
+  function weeklyRate(){
+    let sum = 0, daysCounted = 0;
+    let d = new Date();
+    for(let i = 0; i < 7; i++){
+      const key = d.toLocaleDateString('en-CA');
+      const dayRituals = userData.rituals.filter(r => r.startDate <= key && key <= r.endDate);
+      if(dayRituals.length > 0){
+        const dayLog = userData.logs[key] || {};
+        const done = dayRituals.filter(r => dayLog[r.id]).length;
+        sum += (done / dayRituals.length) * 100;
+        daysCounted++;
+      }
+      d.setDate(d.getDate() - 1);
+    }
+    return daysCounted ? Math.round(sum / daysCounted) : 0;
+  }
+
+  function daysTracked(){
+    return Object.keys(userData.logs).filter(k => Object.values(userData.logs[k]).some(Boolean)).length;
+  }
+
+  /* ---------- dashboard: task data calculations ----------
+     A task is a "date-bound ritual": it has a start date and end date, and a
+     checkbox for every day in that range (dayLogs). Its status is fully derived:
+       - upcoming   : today is before startDate
+       - active     : today is within [startDate, endDate], not finished yet
+       - complete   : today is after endDate AND every day in range was checked
+       - partial    : today is after endDate AND at least one day was missed
+  */
+  function taskDayKeys(t){ return dateRange(t.startDate, t.endDate); }
+  function taskDoneCount(t){
+    return taskDayKeys(t).filter(k => t.dayLogs[k]).length;
+  }
+  function taskTotalDays(t){ return taskDayKeys(t).length; }
+  function taskPercent(t){
+    const total = taskTotalDays(t);
+    return total ? Math.round((taskDoneCount(t) / total) * 100) : 0;
+  }
+  function taskStatus(t){
+    const today = todayStr();
+    if(today < t.startDate) return 'upcoming';
+    if(today > t.endDate){
+      return taskDoneCount(t) >= taskTotalDays(t) ? 'complete' : 'partial';
+    }
+    return 'active';
+  }
+  function isTaskComplete(t){ return taskStatus(t) === 'complete'; }
+  function isTaskPartial(t){ return taskStatus(t) === 'partial'; }
+  function openTasksCount(){
+    return userData.tasks.filter(t => { const s = taskStatus(t); return s === 'active' || s === 'upcoming'; }).length;
+  }
+  function partialTasksCount(){
+    return userData.tasks.filter(isTaskPartial).length;
+  }
+  function completedTasksCount(){
+    return userData.tasks.filter(isTaskComplete).length;
+  }
+
+  /* ---------- dashboard: rendering — rituals/ledger/stats ---------- */
+  function setRingPercent(pct){
+    const fg = $('#ring-fg');
+    const r = parseFloat(fg.getAttribute('r'));
+    const circumference = 2 * Math.PI * r;
+    fg.style.strokeDasharray = circumference;
+    fg.style.strokeDashoffset = circumference * (1 - pct / 100);
+    $('#ring-percent').textContent = pct + '%';
+  }
+
+  function updateStatsAndRing(){
+    const pct = todayCompletionPercent();
+    $('#stat-streak').textContent = overallStreak();
+    $('#stat-best').textContent = longestStreakEver();
+    $('#stat-tasks-open').textContent = openTasksCount();
+    $('#stats-section').innerHTML = `
+      <div class="stat-card"><span class="stat-num">${totalCompletedAllTime()}</span><span class="stat-label">Rituals Completed</span></div>
+      <div class="stat-card"><span class="stat-num">${weeklyRate()}%</span><span class="stat-label">This Week</span></div>
+      <div class="stat-card"><span class="stat-num">${completedTasksCount()}</span><span class="stat-label">Tasks Completed</span></div>
+      <div class="stat-card"><span class="stat-num">${partialTasksCount()}</span><span class="stat-label">Tasks Partial</span></div>
+    `;
+    requestAnimationFrame(() => setRingPercent(pct));
+    if(pct >= 100 && activeRitualsToday().length > 0){
+      const ringWrap = $('#ring-wrap');
+      ringWrap.classList.remove('perfect');
+      void ringWrap.offsetWidth;
+      ringWrap.classList.add('perfect');
+    }
+    renderCharts();
+  }
+
+  function renderLedger(){
+    const grid = $('#ledger-grid');
+    grid.innerHTML = '';
+    const totalDays = 35;
+    const start = new Date();
+    start.setDate(start.getDate() - (totalDays - 1));
+    const startWeekday = (start.getDay() + 6) % 7; // Monday = 0
+    for(let i = 0; i < startWeekday; i++){
+      const empty = document.createElement('div');
+      empty.className = 'ledger-cell empty';
+      grid.appendChild(empty);
+    }
+    const tKey = todayStr();
+    for(let i = 0; i < totalDays; i++){
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      const key = d.toLocaleDateString('en-CA');
+      const dayLog = userData.logs[key] || {};
+      const dayRituals = userData.rituals.filter(r => r.startDate <= key && key <= r.endDate);
+      const ritualCount = dayRituals.length;
+      const doneCount = dayRituals.filter(r => dayLog[r.id]).length;
+      const pct = ritualCount ? doneCount / ritualCount : 0;
+      const cell = document.createElement('div');
+      cell.className = 'ledger-cell';
+      if(key === tKey) cell.classList.add('is-today');
+      cell.style.background = pct === 0 ? 'var(--charcoal-2)' : `rgba(201,162,75, ${(0.18 + pct * 0.65).toFixed(2)})`;
+      cell.style.color = pct > 0.5 ? '#1a1408' : 'var(--muted)';
+      cell.title = `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} — ${Math.round(pct * 100)}%`;
+      cell.textContent = d.getDate();
+      grid.appendChild(cell);
+    }
+  }
+
+  let ritualFilter = 'all';
+
+  function ritualMatchesFilter(r){
+    if(ritualFilter === 'all') return true;
+    const status = ritualStatus(r);
+    if(ritualFilter === 'active') return status === 'active' || status === 'upcoming';
+    if(ritualFilter === 'partial') return status === 'partial';
+    if(ritualFilter === 'completed') return status === 'complete';
+    return true;
+  }
+
+  function renderRituals(){
+    const list = $('#rituals-list');
+    const empty = $('#rituals-empty');
+    list.innerHTML = '';
+
+    const sub = $('#rituals-count-sub');
+    if(sub) sub.textContent = `${activeRitualsToday().length} active today · ${ritualPartialCount()} partial · ${ritualCompleteCount()} done`;
+
+    if(userData.rituals.length === 0){ empty.hidden = false; empty.textContent = 'Your ledger is empty. Add your first ritual to begin.'; return; }
+
+    const statusRank = { partial: 0, active: 1, upcoming: 2, complete: 3 };
+    const sorted = [...userData.rituals].sort((a, b) => {
+      const ra = statusRank[ritualStatus(a)], rb = statusRank[ritualStatus(b)];
+      if(ra !== rb) return ra - rb;
+      return a.endDate < b.endDate ? -1 : a.endDate > b.endDate ? 1 : 0;
+    });
+    const visible = sorted.filter(ritualMatchesFilter);
+
+    if(visible.length === 0){ empty.hidden = false; empty.textContent = 'No rituals match this filter.'; return; }
+    empty.hidden = true;
+
+    const tKey = todayStr();
+    visible.forEach(r => {
+      const status = ritualStatus(r);
+      const activeToday = isRitualActiveToday(r);
+      const checkedToday = !!(userData.logs[tKey] && userData.logs[tKey][r.id]);
+      const done = ritualDoneCount(r);
+      const total = ritualTotalDays(r);
+
+      const statusPillHtml = status === 'complete'
+        ? '<span class="status-pill complete">Complete</span>'
+        : status === 'partial'
+          ? '<span class="status-pill partial">Partial</span>'
+          : status === 'upcoming'
+            ? '<span class="status-pill upcoming">Upcoming</span>'
+            : '';
+
+      const li = document.createElement('li');
+      li.className = 'ritual-row' + (status === 'partial' ? ' is-partial' : '') + (status === 'complete' ? ' is-complete' : '');
+      li.dataset.ritualId = r.id;
+      li.innerHTML = `
+        <div class="ritual-top">
+          <button class="ritual-check ${checkedToday ? 'checked' : ''}" ${activeToday ? '' : 'disabled'} aria-label="Mark ${escapeHtml(r.name)} complete for today" aria-pressed="${checkedToday}"></button>
+          <div class="ritual-main">
+            <div class="ritual-name-row">
+              <span class="ritual-name">${escapeHtml(r.name)}</span>
+              ${statusPillHtml}
+              <span class="ritual-streak">${streakFor(r.id)}d streak</span>
+            </div>
+            <div class="ritual-dates">${formatDateShort(r.startDate)} → ${formatDateShort(r.endDate)} · ${done}/${total} days</div>
+          </div>
+          <button class="ritual-delete" type="button" aria-label="Remove ${escapeHtml(r.name)}">×</button>
+        </div>
+        <button class="task-days-toggle" type="button" data-ritual-id="${r.id}">Show daily checklist</button>
+        <div class="task-days-grid" id="ritual-days-grid-${r.id}" hidden></div>
+      `;
+      list.appendChild(li);
+    });
+  }
+
+  function renderRitualDayGrid(ritual){
+    const grid = $('#ritual-days-grid-' + ritual.id);
+    if(!grid) return;
+    const tKey = todayStr();
+    grid.innerHTML = ritualDayKeys(ritual).map(key => {
+      const checked = !!(userData.logs[key] && userData.logs[key][ritual.id]);
+      const isToday = key === tKey;
+      const isFuture = key > tKey;
+      const d = new Date(key + 'T00:00:00');
+      const classes = ['task-day-cell'];
+      if(checked) classes.push('checked');
+      if(isToday) classes.push('is-today');
+      if(isFuture) classes.push('is-future');
+      return `<button class="${classes.join(' ')}" type="button" data-day-key="${key}" ${isFuture ? 'disabled' : ''} aria-label="${formatDateShort(key)}${checked ? ', done' : ''}" aria-pressed="${checked}"><span class="day-num">${d.getDate()}</span></button>`;
+    }).join('');
+  }
+
+  $('#rituals-list').addEventListener('click', (e) => {
+    const checkBtn = e.target.closest('.ritual-check');
+    const delBtn = e.target.closest('.ritual-delete');
+    const toggleBtn = e.target.closest('.task-days-toggle');
+    const dayCell = e.target.closest('.task-day-cell');
+    const row = e.target.closest('.ritual-row');
+    if(!row) return;
+    const id = row.dataset.ritualId;
+    const ritual = userData.rituals.find(r => r.id === id);
+    if(!ritual) return;
+
+    if(checkBtn && !checkBtn.disabled){
+      const tKey = todayStr();
+      if(!userData.logs[tKey]) userData.logs[tKey] = {};
+      const newState = !userData.logs[tKey][id];
+      userData.logs[tKey][id] = newState;
+      saveUserData(currentUser, userData);
+
+      checkBtn.classList.toggle('checked', newState);
+      checkBtn.setAttribute('aria-pressed', String(newState));
+      checkBtn.classList.remove('punch'); void checkBtn.offsetWidth; checkBtn.classList.add('punch');
+      if(newState){
+        checkBtn.classList.remove('stamping'); void checkBtn.offsetWidth; checkBtn.classList.add('stamping');
+      }
+      row.querySelector('.ritual-streak').textContent = streakFor(id) + 'd streak';
+      row.querySelector('.ritual-dates').textContent = `${formatDateShort(ritual.startDate)} → ${formatDateShort(ritual.endDate)} · ${ritualDoneCount(ritual)}/${ritualTotalDays(ritual)} days`;
+      const dayGrid = $('#ritual-days-grid-' + id);
+      if(dayGrid && dayGrid.dataset.built) renderRitualDayGrid(ritual);
+      updateStatsAndRing();
+      renderLedger();
+      return;
+    }
+
+    if(toggleBtn){
+      const grid = $('#ritual-days-grid-' + id);
+      const willShow = grid.hidden;
+      if(willShow && !grid.dataset.built){
+        renderRitualDayGrid(ritual);
+        grid.dataset.built = '1';
+      }
+      grid.hidden = !willShow;
+      toggleBtn.textContent = willShow ? 'Hide daily checklist' : 'Show daily checklist';
+      return;
+    }
+
+    if(dayCell && !dayCell.disabled){
+      const key = dayCell.dataset.dayKey;
+      if(!userData.logs[key]) userData.logs[key] = {};
+      const newState = !userData.logs[key][id];
+      userData.logs[key][id] = newState;
+      saveUserData(currentUser, userData);
+
+      dayCell.classList.toggle('checked', newState);
+      dayCell.setAttribute('aria-pressed', String(newState));
+      dayCell.classList.remove('punch'); void dayCell.offsetWidth; dayCell.classList.add('punch');
+
+      // Reflect the change in this row's summary bits without a full re-render
+      const status = ritualStatus(ritual);
+      row.classList.toggle('is-partial', status === 'partial');
+      row.classList.toggle('is-complete', status === 'complete');
+      row.querySelector('.ritual-streak').textContent = streakFor(id) + 'd streak';
+      row.querySelector('.ritual-dates').textContent = `${formatDateShort(ritual.startDate)} → ${formatDateShort(ritual.endDate)} · ${ritualDoneCount(ritual)}/${ritualTotalDays(ritual)} days`;
+      const tKey = todayStr();
+      if(key === tKey){
+        const checkBtnEl = row.querySelector('.ritual-check');
+        checkBtnEl.classList.toggle('checked', newState);
+        checkBtnEl.setAttribute('aria-pressed', String(newState));
+      }
+      const statusPillEl = row.querySelector('.status-pill');
+      const pillHtml = status === 'complete' ? '<span class="status-pill complete">Complete</span>'
+        : status === 'partial' ? '<span class="status-pill partial">Partial</span>'
+        : status === 'upcoming' ? '<span class="status-pill upcoming">Upcoming</span>' : '';
+      if(statusPillEl) statusPillEl.outerHTML = pillHtml;
+      else if(pillHtml) row.querySelector('.ritual-name-row').insertAdjacentHTML('beforeend', pillHtml);
+
+      updateStatsAndRing();
+      renderLedger();
+      return;
+    }
+
+    if(delBtn){
+      if(!confirm(`Remove "${ritual.name}" from your rituals?`)) return;
+      userData.rituals = userData.rituals.filter(r => r.id !== id);
+      saveUserData(currentUser, userData);
+      renderRituals();
+      updateStatsAndRing();
+      renderLedger();
+    }
+  });
+
+  $('#ritual-filter-row').addEventListener('click', (e) => {
+    const btn = e.target.closest('.task-filter-btn');
+    if(!btn) return;
+    ritualFilter = btn.dataset.filter;
+    $$('#ritual-filter-row .task-filter-btn').forEach(b => b.classList.toggle('active', b === btn));
+    renderRituals();
+  });
+
+  $('#add-ritual-btn').addEventListener('click', () => {
+    const form = $('#ritual-form');
+    form.hidden = !form.hidden;
+    if(!form.hidden){
+      $('#ritual-start-input').value = todayStr();
+      $('#new-ritual-input').focus();
+    }
+  });
+  $('#cancel-add-ritual').addEventListener('click', () => {
+    $('#ritual-form').hidden = true;
+    $('#ritual-form').reset();
+    $('#ritual-form-error').textContent = '';
+  });
+
+  $('#ritual-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const errEl = $('#ritual-form-error');
+    errEl.textContent = '';
+    const name = $('#new-ritual-input').value.trim();
+    const start = $('#ritual-start-input').value;
+    const end = $('#ritual-end-input').value;
+    if(!name || !start || !end){ errEl.textContent = 'Fill in the ritual name, start date, and end date.'; return; }
+    if(end < start){ errEl.textContent = 'End date must be on or after the start date.'; return; }
+
+    userData.rituals.push({
+      id: 'r_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      name, startDate: start, endDate: end, createdAt: todayStr()
+    });
+    saveUserData(currentUser, userData);
+    $('#ritual-form').reset();
+    $('#ritual-form').hidden = true;
+    renderRituals();
+    updateStatsAndRing();
+    renderLedger();
+  });
+
+  /* ---------- dashboard: rendering — tasks ---------- */
+  $('#add-task-btn').addEventListener('click', () => {
+    const form = $('#task-form');
+    form.hidden = !form.hidden;
+    if(!form.hidden){
+      $('#task-start-input').value = todayStr();
+      $('#task-name-input').focus();
+    }
+  });
+  $('#cancel-add-task').addEventListener('click', () => {
+    $('#task-form').hidden = true;
+    $('#task-form').reset();
+    $('#task-form-error').textContent = '';
+  });
+
+  $('#task-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const errEl = $('#task-form-error');
+    errEl.textContent = '';
+    const name = $('#task-name-input').value.trim();
+    const start = $('#task-start-input').value;
+    const end = $('#task-end-input').value;
+    const priority = $('#task-priority-input').value;
+    if(!name || !start || !end){ errEl.textContent = 'Fill in the task name, start date, and due date.'; return; }
+    if(end < start){ errEl.textContent = 'Due date must be on or after the start date.'; return; }
+
+    userData.tasks.push({
+      id: 't_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      name, startDate: start, endDate: end, priority,
+      dayLogs: {}, createdAt: todayStr()
+    });
+    saveUserData(currentUser, userData);
+    $('#task-form').reset();
+    $('#task-form').hidden = true;
+    renderTasks();
+    updateStatsAndRing();
+  });
+
+  $('#task-filter-row').addEventListener('click', (e) => {
+    const btn = e.target.closest('.task-filter-btn');
+    if(!btn) return;
+    taskFilter = btn.dataset.filter;
+    $$('#task-filter-row .task-filter-btn').forEach(b => b.classList.toggle('active', b === btn));
+    renderTasks();
+  });
+
+  function taskMatchesFilter(t){
+    if(taskFilter === 'all') return true;
+    const status = taskStatus(t);
+    if(taskFilter === 'active') return status === 'active' || status === 'upcoming';
+    if(taskFilter === 'partial') return status === 'partial';
+    if(taskFilter === 'completed') return status === 'complete';
+    return true;
+  }
+
+  function renderTasks(){
+    const list = $('#tasks-list');
+    const empty = $('#tasks-empty');
+    list.innerHTML = '';
+
+    const sub = $('#tasks-count-sub');
+    sub.textContent = `${openTasksCount()} in progress · ${partialTasksCount()} partial · ${completedTasksCount()} done`;
+
+    const statusRank = { partial: 0, active: 1, upcoming: 2, complete: 3 };
+    const sorted = [...userData.tasks].sort((a, b) => {
+      const ra = statusRank[taskStatus(a)], rb = statusRank[taskStatus(b)];
+      if(ra !== rb) return ra - rb;
+      return a.endDate < b.endDate ? -1 : a.endDate > b.endDate ? 1 : 0;
+    });
+
+    const visible = sorted.filter(taskMatchesFilter);
+
+    if(userData.tasks.length === 0){
+      empty.hidden = false;
+      empty.textContent = 'No tasks here. Add a goal with a start and due date to track it.';
+      return;
+    }
+    if(visible.length === 0){
+      empty.hidden = false;
+      empty.textContent = 'No tasks match this filter.';
+      return;
+    }
+    empty.hidden = true;
+
+    const tKey = todayStr();
+
+    visible.forEach(t => {
+      const status = taskStatus(t);
+      const pct = taskPercent(t);
+      const done = taskDoneCount(t);
+      const total = taskTotalDays(t);
+      const li = document.createElement('li');
+      li.className = 'task-card' +
+        (status === 'partial' ? ' is-partial' : '') +
+        (status === 'complete' ? ' is-complete' : '');
+      li.dataset.taskId = t.id;
+
+      const statusPillHtml = status === 'complete'
+        ? '<span class="status-pill complete">Complete</span>'
+        : status === 'partial'
+          ? '<span class="status-pill partial">Partial</span>'
+          : status === 'upcoming'
+            ? '<span class="status-pill upcoming">Upcoming</span>'
+            : '';
+
+      li.innerHTML = `
+        <div class="task-top">
+          <div class="task-main">
+            <div class="task-name-row">
+              <span class="task-name">${escapeHtml(t.name)}</span>
+              <span class="prio-pill ${t.priority}">${t.priority}</span>
+              ${statusPillHtml}
+            </div>
+            <div class="task-dates">${formatDateShort(t.startDate)} → ${formatDateShort(t.endDate)} · ${total} day${total === 1 ? '' : 's'}</div>
+          </div>
+          <button class="task-delete" type="button" aria-label="Remove ${escapeHtml(t.name)}">×</button>
+        </div>
+        <div class="task-progress-row">
+          <div class="task-progress-track"><div class="task-progress-fill ${status === 'partial' ? 'partial' : ''}" style="width:${pct}%"></div></div>
+          <span class="task-progress-pct">${done}/${total} days · ${pct}%</span>
+        </div>
+        <button class="task-days-toggle" type="button" data-task-id="${t.id}">Show daily checklist</button>
+        <div class="task-days-grid" id="days-grid-${t.id}" hidden></div>
+      `;
+      list.appendChild(li);
+    });
+  }
+
+  function renderTaskDayGrid(task){
+    const grid = $('#days-grid-' + task.id);
+    if(!grid) return;
+    const tKey = todayStr();
+    grid.innerHTML = taskDayKeys(task).map(key => {
+      const checked = !!task.dayLogs[key];
+      const isToday = key === tKey;
+      const isFuture = key > tKey;
+      const d = new Date(key + 'T00:00:00');
+      const classes = ['task-day-cell'];
+      if(checked) classes.push('checked');
+      if(isToday) classes.push('is-today');
+      if(isFuture) classes.push('is-future');
+      return `<button class="${classes.join(' ')}" type="button" data-day-key="${key}" ${isFuture ? 'disabled' : ''} aria-label="${formatDateShort(key)}${checked ? ', done' : ''}" aria-pressed="${checked}"><span class="day-num">${d.getDate()}</span></button>`;
+    }).join('');
+  }
+
+  $('#tasks-list').addEventListener('click', (e) => {
+    const delBtn = e.target.closest('.task-delete');
+    const toggleBtn = e.target.closest('.task-days-toggle');
+    const dayCell = e.target.closest('.task-day-cell');
+    const card = e.target.closest('.task-card');
+    if(!card) return;
+    const id = card.dataset.taskId;
+    const task = userData.tasks.find(t => t.id === id);
+    if(!task) return;
+
+    if(toggleBtn){
+      const grid = $('#days-grid-' + id);
+      const willShow = grid.hidden;
+      if(willShow && !grid.dataset.built){
+        renderTaskDayGrid(task);
+        grid.dataset.built = '1';
+      }
+      grid.hidden = !willShow;
+      toggleBtn.textContent = willShow ? 'Hide daily checklist' : 'Show daily checklist';
+      return;
+    }
+
+    if(dayCell && !dayCell.disabled){
+      const key = dayCell.dataset.dayKey;
+      const newState = !task.dayLogs[key];
+      task.dayLogs[key] = newState;
+      saveUserData(currentUser, userData);
+
+      dayCell.classList.toggle('checked', newState);
+      dayCell.setAttribute('aria-pressed', String(newState));
+      dayCell.classList.remove('punch'); void dayCell.offsetWidth; dayCell.classList.add('punch');
+
+      // Update this card's progress bar / status without a full re-render (keeps grid open)
+      const pct = taskPercent(task);
+      const done = taskDoneCount(task);
+      const total = taskTotalDays(task);
+      const status = taskStatus(task);
+      const fill = card.querySelector('.task-progress-fill');
+      fill.style.width = pct + '%';
+      fill.classList.toggle('partial', status === 'partial');
+      card.querySelector('.task-progress-pct').textContent = `${done}/${total} days · ${pct}%`;
+      card.classList.toggle('is-partial', status === 'partial');
+      card.classList.toggle('is-complete', status === 'complete');
+      const statusPillEl = card.querySelector('.status-pill');
+      const pillHtml = status === 'complete' ? '<span class="status-pill complete">Complete</span>'
+        : status === 'partial' ? '<span class="status-pill partial">Partial</span>'
+        : status === 'upcoming' ? '<span class="status-pill upcoming">Upcoming</span>' : '';
+      if(statusPillEl) statusPillEl.outerHTML = pillHtml;
+      else if(pillHtml) card.querySelector('.task-name-row').insertAdjacentHTML('beforeend', pillHtml);
+
+      updateStatsAndRing();
+      return;
+    }
+
+    if(delBtn){
+      if(!confirm(`Remove "${task.name}" from your tasks?`)) return;
+      userData.tasks = userData.tasks.filter(t => t.id !== id);
+      saveUserData(currentUser, userData);
+      renderTasks();
+      updateStatsAndRing();
+    }
+  });
+
+  /* ---------- dashboard: rendering — charts (production overview) ---------- */
+  function renderCharts(){
+    // Bar chart: last 7 days ritual completion %
+    const barsEl = $('#bars-chart');
+    barsEl.innerHTML = '';
+    const tKey = todayStr();
+    let d = new Date();
+    d.setDate(d.getDate() - 6);
+    for(let i = 0; i < 7; i++){
+      const key = d.toLocaleDateString('en-CA');
+      const dayLog = userData.logs[key] || {};
+      const dayRituals = userData.rituals.filter(r => r.startDate <= key && key <= r.endDate);
+      const ritualCount = dayRituals.length;
+      const doneCount = dayRituals.filter(r => dayLog[r.id]).length;
+      const pct = ritualCount ? Math.round((doneCount / ritualCount) * 100) : 0;
+      const col = document.createElement('div');
+      col.className = 'bar-col';
+      const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short' }).charAt(0);
+      col.innerHTML = `
+        <div class="bar-track"><div class="bar-fill" style="height:${pct}%; animation-delay:${i*0.05}s"></div></div>
+        <span class="bar-label">${dayLabel}${key === tKey ? '•' : ''}</span>
+      `;
+      barsEl.appendChild(col);
+      d.setDate(d.getDate() + 1);
+    }
+
+    // Donut: task breakdown by status
+    const donutEl = $('#donut-wrap');
+    const active = userData.tasks.filter(t => { const s = taskStatus(t); return s === 'active' || s === 'upcoming'; }).length;
+    const partial = partialTasksCount();
+    const done = completedTasksCount();
+    const total = active + partial + done;
+
+    if(total === 0){
+      donutEl.innerHTML = `<p style="font-family:var(--font-display);font-style:italic;color:var(--muted);font-size:1rem;">No tasks yet to chart.</p>`;
+      return;
+    }
+
+    const segments = [
+      { label: 'In progress', value: active, color: 'var(--gold-bright)' },
+      { label: 'Partial', value: partial, color: 'var(--error)' },
+      { label: 'Completed', value: done, color: 'var(--prio-low)' }
+    ].filter(s => s.value > 0);
+
+    const r = 52, cx = 64, cy = 64, circumference = 2 * Math.PI * r;
+    let offsetAcc = 0;
+    const circles = segments.map(s => {
+      const frac = s.value / total;
+      const len = frac * circumference;
+      const dasharray = `${len} ${circumference - len}`;
+      const dashoffset = circumference * 0.25 - offsetAcc; // start at top, clockwise
+      offsetAcc += len;
+      return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="16" stroke-dasharray="${dasharray}" stroke-dashoffset="${dashoffset}" />`;
+    }).join('');
+
+    donutEl.innerHTML = `
+      <svg class="donut-svg" viewBox="0 0 128 128">
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--charcoal-2)" stroke-width="16"/>
+        ${circles}
+        <text x="64" y="60" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="20" fill="var(--cream)">${total}</text>
+        <text x="64" y="76" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8" fill="var(--muted)" letter-spacing="1">TASKS</text>
+      </svg>
+      <div class="donut-legend">
+        ${segments.map(s => `<div class="legend-row"><span class="legend-swatch" style="background:${s.color}"></span>${s.label} — ${s.value}</div>`).join('')}
+      </div>
+    `;
+  }
+
+  function renderDashboard(){
+    $('#dropdown-name').textContent = currentDisplayName;
+    $('#dropdown-since').textContent = 'Member since ' + currentSince;
+    $('#avatar-btn').textContent = (currentDisplayName[0] || '?').toUpperCase();
+
+    const now = new Date();
+    $('#topbar-date').textContent = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    const hour = now.getHours();
+    const greetWord = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+    const firstName = currentDisplayName.split(' ')[0];
+    $('#hero-greeting').textContent = `${greetWord}, ${firstName}. Discipline is built one day at a time.`;
+
+    setRingPercent(0);
+    ritualFilter = 'all';
+    $$('#ritual-filter-row .task-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === 'all'));
+    renderRituals();
+    taskFilter = 'all';
+    $$('#task-filter-row .task-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === 'all'));
+    renderTasks();
+    updateStatsAndRing();
+    renderLedger();
+  }
+
+  /* ---------- storage availability check ---------- */
+  let storageAvailable = true;
+  try{
+    localStorage.setItem('__ritual_test__', '1');
+    localStorage.removeItem('__ritual_test__');
+  }catch(e){
+    storageAvailable = false;
+  }
+  if(!storageAvailable){
+    const w = $('#storage-warning');
+    w.hidden = false;
+    w.textContent = "This browser is blocking local storage for this page — common in Safari private mode, incognito windows, or some local-file restrictions. Sign in/registration can't save here. Try a normal (non-private) browser window, or open this file through a local server / hosted link instead.";
+  }
+
+  /* ---------- global safety net: never let a button hang silently ---------- */
+  function resetStuckButtons(){
+    $$('.btn-gold, .btn-gold-sm').forEach(b => {
+      if(b.disabled){
+        b.disabled = false;
+        const span = b.querySelector('.btn-text');
+        if(span && b.dataset.label) span.textContent = b.dataset.label;
+      }
+    });
+  }
+  window.addEventListener('unhandledrejection', (e) => {
+    console.error('Unhandled error:', e.reason);
+    resetStuckButtons();
+    showToast('Something went wrong — please try again.');
+  });
+  window.addEventListener('error', (e) => {
+    console.error('Error:', e.error || e.message);
+    resetStuckButtons();
+  });
+
+  /* ---------- init ---------- */
+  setActiveTab('login');
+})();
+</script>
+</body>
+</html>
